@@ -40,11 +40,11 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
     int dstWidth;
     int dstHeight;
 
-    Mat mYuv(srcHeight+srcHeight/2, srcWidth, CV_8UC1, srcLumaPtr); //getting all channels for display
-    //cv::Mat mYuvGray(srcHeight,srcWidth,CV_8UC1,srcLumaPtr); //only getting the luma channel
+    Mat mYuv(srcHeight+srcHeight/2, srcWidth, CV_8UC1, srcLumaPtr, 1280); //getting all channels for display
+    cv::Mat mYuvGray(srcHeight,srcWidth,CV_8UC1,srcLumaPtr); //only getting the luma channel
 
-    uint8_t *srcChromaUVInterleavedPtr = nullptr;
-    bool swapDstUV;
+//    uint8_t *srcChromaUVInterleavedPtr = nullptr;
+//    bool swapDstUV;
 
     ANativeWindow *win = ANativeWindow_fromSurface(env, dstSurface);
     ANativeWindow_acquire(win);
@@ -74,13 +74,7 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
     // convert YUV -> RGBA
     cv::cvtColor(mYuv, srcRgba, CV_YUV2RGBA_NV21); //colorRgba is used for display
 
-    // Rotate 90 degree
-    transpose(srcRgba, flipRgba);
-    flip(flipRgba, colorRgba, 1);
-
-    Mat img = colorRgba;
-
-    imwrite("/mnt/sdcard/Android/Data/CollabAR/read.png", colorRgba);
+    imwrite("/mnt/sdcard/Android/Data/CollabAR/read.jpg", srcRgba);
 
     Mat ref = imread("/mnt/sdcard/Android/Data/CollabAR/marker.jpg");
     Rect roi;
@@ -93,8 +87,10 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
     imwrite( "/mnt/sdcard/Android/Data/CollabAR/image1.jpg", img );
      */
 
+    Mat imgG = mYuvGray;
+
     int width;
-    width = img.cols;
+    width = imgG.cols;
 
     int h, w;
     h = ref.rows;
@@ -105,14 +101,16 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
     resize(ref, ref, Size(width, int(h*r)), 0, 0, INTER_AREA);
 
     // convert images to grayscale
-    Mat imgG, refG;
-    cvtColor(img, imgG, CV_RGB2GRAY);
+    Mat refG;
+//    cvtColor(img, imgG, CV_YUV2GRAY_420);
     cvtColor(ref, refG, CV_RGB2GRAY);
 
     if( !imgG.data || !refG.data )
     {
         cout<< " --(!) Error reading images " << endl;
     }
+
+    imwrite("/mnt/sdcard/Android/Data/CollabAR/readGray.jpg", imgG);
 
     /*
     imwrite( "/mnt/sdcard/Android/Data/CollabAR/grayIMG.jpg", imgG );
@@ -316,13 +314,14 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
                 roi.height = 2*rad;
 
                 /* Check if ROI lies in the image and Crop the original image to the defined ROI */
-                bool is_inside = (roi & cv::Rect(0, 0, img.cols, img.rows)) == roi;
+                bool is_inside = (roi & cv::Rect(0, 0, srcRgba.cols, srcRgba.rows)) == roi;
                 if(is_inside) {
-                    crop = img(roi);
-                    cvtColor(crop, crop, CV_BGR2RGB);
+                    cvtColor(srcRgba, colorRgba, CV_BGRA2RGBA);
+                    crop = srcRgba(roi);
+//                    cvtColor(crop, crop, CV_BGR2RGB);
                     imwrite("/mnt/sdcard/Android/Data/CollabAR/SEM_cropped.png", crop);
-                    rectangle(img, roi, Scalar(255,0,0), 2);
-                    imwrite("/mnt/sdcard/Android/Data/CollabAR/frame_ROI.png", img);
+                    rectangle(colorRgba, roi, Scalar(255,0,0), 2);
+                    imwrite("/mnt/sdcard/Android/Data/CollabAR/frame_ROI.png", colorRgba);
                 }
             } else{
                 hello = hello + "Unable to estimate pose!";
@@ -342,20 +341,21 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
     ss << diff.tv_usec/1e6;
     hello = hello + "\nTime elapsed in Pose Estimation: " + ss.str() + " sec.";
 
-    cv::transpose(colorRgba, colorRgba);
-    cv::flip(colorRgba, colorRgba,1);
-    circle(colorRgba,Point(colorRgba.cols/2,colorRgba.rows/2),2,Scalar(255,255,0),1);
+
+    cv::transpose(srcRgba, srcRgba);
+    cv::flip(srcRgba, srcRgba,1);
+//    circle(srcRgba,Point(srcRgba.cols/2,srcRgba.rows/2),2,Scalar(255,0,0),5);
 
     // copy to TextureView surface
     uchar *dbuf;
     uchar *sbuf;
     dbuf = dstRgba.data;
-    sbuf = colorRgba.data;
+    sbuf = srcRgba.data;
     int i;
-    for (i = 0; i < colorRgba.rows; i++) {
+    for (i = 0; i < srcRgba.rows; i++) {
         dbuf = dstRgba.data + i * buf.stride * 4;
-        memcpy(dbuf, sbuf, colorRgba.cols*4);
-        sbuf += colorRgba.cols * 4;
+        memcpy(dbuf, sbuf, srcRgba.cols*4);
+        sbuf += srcRgba.cols * 4;
     }
 
     ANativeWindow_unlockAndPost(win);

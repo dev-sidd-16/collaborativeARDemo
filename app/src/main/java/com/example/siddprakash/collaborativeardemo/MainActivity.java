@@ -511,8 +511,10 @@ public class MainActivity extends AppCompatActivity {
 
                 frame = imageToMat(img);
 
+
                 message = stringFromJNI(img.getWidth(), img.getHeight(), planes[0].getBuffer(), surface, processing);
 
+                img.close();
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -541,6 +543,7 @@ public class MainActivity extends AppCompatActivity {
             {
                 e.printStackTrace();
             }
+
 
         }
 
