@@ -77,7 +77,7 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
     // convert YUV -> RGBA
     cv::cvtColor(mYuv, srcRgba, CV_YUV2RGBA_NV21); //colorRgba is used for display
 //    srcRgba = mYuv;
-    imwrite("/mnt/sdcard/Android/Data/CollaborativeAR/read.jpg", srcRgba);
+    //imwrite("/mnt/sdcard/Android/Data/CollaborativeAR/read.jpg", srcRgba);
 
     Mat ref = imread("/mnt/sdcard/Android/Data/CollaborativeAR/marker.jpg");
     Rect roi;
@@ -116,7 +116,7 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
         cout<< " --(!) Error reading images " << endl;
     }
 
-    imwrite("/mnt/sdcard/Android/Data/CollaborativeAR/readGray.jpg", imgG);
+    //imwrite("/mnt/sdcard/Android/Data/CollaborativeAR/readGray.jpg", imgG);
 
     /*
     imwrite( "/mnt/sdcard/Android/Data/CollabAR/grayIMG.jpg", imgG );
@@ -214,9 +214,9 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
                  vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
 
     //-- Show detected matches
-    if(capture) {
-        imwrite("/mnt/sdcard/Android/Data/CollaborativeAR/Good_Matches.jpg", img_matches);
-    }
+//    if(capture) {
+//        imwrite("/mnt/sdcard/Android/Data/CollaborativeAR/Good_Matches.jpg", img_matches);
+//    }
 
     int nGoodMatches = good_matches.size();
 
@@ -329,7 +329,7 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
                     imwrite("/mnt/sdcard/Android/Data/CollaborativeAR/SEM_cropped.png", crop);
                 }
                 rectangle(srcRgba, roi, Scalar(255,0,0), 2);
-                imwrite("/mnt/sdcard/Android/Data/CollaborativeAR/frame_ROI.png", srcRgba);
+                //imwrite("/mnt/sdcard/Android/Data/CollaborativeAR/frame_ROI.png", srcRgba);
             } else{
                 hello = hello + "Unable to estimate pose!";
             }
