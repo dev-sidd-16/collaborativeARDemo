@@ -56,7 +56,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tv;
 
     private Mat frame;
-    private String appFolderPath = Environment.getExternalStorageDirectory() + "/Android/Data/CollabAR/";
+    private String appFolderPath = Environment.getExternalStorageDirectory() + "/Android/Data/CollaborativeAR/";
 
     private String message="Capture an Image!";
     private Context ctx;
@@ -127,7 +127,7 @@ public class MainActivity extends AppCompatActivity {
         btncapture.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                capture();
+                processing = true;
             }
         });
 
@@ -481,7 +481,7 @@ public class MainActivity extends AppCompatActivity {
      * A native method that is implemented by the 'native-lib' native library,
      * which is packaged with this application.
      */
-    public native String stringFromJNI(int width, int height, ByteBuffer buffer, Surface dst, boolean p);
+    public native String stringFromJNI(int width, int height, ByteBuffer buffer, long address, Surface dst, boolean p);
 
     private final ImageReader.OnImageAvailableListener onImageAvailableListener
             = new ImageReader.OnImageAvailableListener() {
@@ -509,10 +509,55 @@ public class MainActivity extends AppCompatActivity {
                                     + planes[1].getPixelStride());
                 }
 
-                frame = imageToMat(img);
+//                frame = imageToMat(img);
+
+                Image.Plane yPlane = img.getPlanes()[0];
+                Image.Plane uPlane = img.getPlanes()[1];
+                Image.Plane vPlane = img.getPlanes()[2];
+
+                int ySize = planes[0].getBuffer().remaining();
+                Log.d("YSIZE",""+ySize);
+
+                byte[] data;
 
 
-                message = stringFromJNI(img.getWidth(), img.getHeight(), planes[0].getBuffer(), surface, processing);
+                Mat yuvGray = new Mat(img.getHeight(), img.getWidth(), CvType.CV_8UC1);
+                Mat yuvColor = new Mat(img.getHeight()+img.getHeight()/2, img.getWidth(),CvType.CV_8UC1);
+
+
+
+                if(planes[1].getPixelStride()==2)
+                {
+                    int uSize = planes[1].getBuffer().remaining();
+                    int vSize = planes[2].getBuffer().remaining();
+
+                    data = new byte[ySize + (ySize/2)];
+
+                    yPlane.getBuffer().get(data, 0, ySize);
+
+                    ByteBuffer ub = uPlane.getBuffer();
+                    ByteBuffer vb = vPlane.getBuffer();
+
+                    vb.get(data, ySize, vSize);
+                    for (int i = 0; i < uSize; i += 2) {
+                        data[ySize + i + 1] = ub.get(i);
+                    }
+                    Log.d("USIZE",""+uSize);
+                    Log.d("VSIZE",""+vSize);
+
+                    yuvColor.put(0, 0, data);
+                    yuvGray.put(0, 0, data);
+
+//            displayImage(yuvMat.getNativeObjAddr(),dst,src.getWidth(),src.getHeight());
+
+                }
+                else {
+                    data = new byte[ySize];
+                    yPlane.getBuffer().get(data, 0, ySize);
+                    yuvColor = new Mat(img.getHeight() + (img.getHeight() / 2), img.getWidth(), CvType.CV_8UC1);
+                    yuvColor.put(0, 0, data);
+                }
+                message = stringFromJNI(img.getWidth(), img.getHeight(), planes[0].getBuffer(), yuvColor.getNativeObjAddr(), surface, processing);
 
                 img.close();
                 runOnUiThread(new Runnable() {
@@ -524,6 +569,11 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
                 });
+
+                if(flag){
+                    processing = false;
+                    flag = false;
+                }
 //                // Call the nativePoseEstimation method to estimate the pose
 //                NativeCallMethods.poseEstimate(img,surface,false);
 //

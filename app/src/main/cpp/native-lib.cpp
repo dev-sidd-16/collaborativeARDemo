@@ -31,7 +31,7 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
         JNIEnv *env,
         jobject /* this */,
         jint srcWidth, jint srcHeight,
-        jobject srcBuffer,
+        jobject srcBuffer, jlong address,
         jobject dstSurface, jboolean capture) {
 
     string hello = "--*--\n";
@@ -40,8 +40,11 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
     int dstWidth;
     int dstHeight;
 
-    Mat mYuv(srcHeight+srcHeight/2, srcWidth, CV_8UC1, srcLumaPtr, 1280); //getting all channels for display
-    cv::Mat mYuvGray(srcHeight,srcWidth,CV_8UC1,srcLumaPtr); //only getting the luma channel
+    Mat &mYuv = *(Mat*)address;
+    Mat mYuvGray;
+    cvtColor(mYuv, mYuvGray, CV_YUV2GRAY_420);
+//    Mat mYuv(srcHeight+srcHeight/2, srcWidth, CV_8UC1, srcLumaPtr, 1280); //getting all channels for display
+//    cv::Mat mYuvGray(srcHeight,srcWidth,CV_8UC1,srcLumaPtr); //only getting the luma channel
 
 //    uint8_t *srcChromaUVInterleavedPtr = nullptr;
 //    bool swapDstUV;
@@ -73,10 +76,10 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
 
     // convert YUV -> RGBA
     cv::cvtColor(mYuv, srcRgba, CV_YUV2RGBA_NV21); //colorRgba is used for display
+//    srcRgba = mYuv;
+    imwrite("/mnt/sdcard/Android/Data/CollaborativeAR/read.jpg", srcRgba);
 
-    imwrite("/mnt/sdcard/Android/Data/CollabAR/read.jpg", srcRgba);
-
-    Mat ref = imread("/mnt/sdcard/Android/Data/CollabAR/marker.jpg");
+    Mat ref = imread("/mnt/sdcard/Android/Data/CollaborativeAR/marker.jpg");
     Rect roi;
     Mat crop;
 
@@ -87,18 +90,21 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
     imwrite( "/mnt/sdcard/Android/Data/CollabAR/image1.jpg", img );
      */
 
+    //transpose(mYuvGray, mYuvGray);
+    //flip(mYuvGray, mYuvGray,1);
+
     Mat imgG = mYuvGray;
 
-    int width;
-    width = imgG.cols;
-
-    int h, w;
-    h = ref.rows;
-    w = ref.cols;
-
-    float r = width/float(w);
-
-    resize(ref, ref, Size(width, int(h*r)), 0, 0, INTER_AREA);
+//    int width;
+//    width = imgG.cols;
+//
+//    int h, w;
+//    h = ref.rows;
+//    w = ref.cols;
+//
+//    float r = width/float(w);
+//
+//    resize(ref, ref, Size(width, int(h*r)), 0, 0, INTER_AREA);
 
     // convert images to grayscale
     Mat refG;
@@ -110,7 +116,7 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
         cout<< " --(!) Error reading images " << endl;
     }
 
-    imwrite("/mnt/sdcard/Android/Data/CollabAR/readGray.jpg", imgG);
+    imwrite("/mnt/sdcard/Android/Data/CollaborativeAR/readGray.jpg", imgG);
 
     /*
     imwrite( "/mnt/sdcard/Android/Data/CollabAR/grayIMG.jpg", imgG );
@@ -121,6 +127,7 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
     const double cyIMG = imgG.rows/2;
     const double fxIMG = 1.73*cxIMG;
     const double fyIMG = 1.73*cyIMG;
+    const double standHeight = 1/5;
 
 
     // TODO: Move reference frame parameter estimation code to another function
@@ -128,7 +135,7 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
     const double cyREF = refG.rows/2;
     const double fxREF = cxREF*1.73;
     const double fyREF = cyREF*1.73;
-    const double radius = 0.53/5.5;
+    const double radius = 0.53/5;
 
     struct timeval start, end, diff;
     ::gettimeofday(&start, NULL);
@@ -167,7 +174,7 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
             min_Y = Y;
         if( Y > max_Y )
             max_Y = Y;
-        double Z = radius;
+        double Z = (radius+standHeight);
         p3d.push_back(cv::Point3f(X, Y, Z));
     }
 
@@ -208,7 +215,7 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
 
     //-- Show detected matches
     if(capture) {
-        imwrite("/mnt/sdcard/Android/Data/CollabAR/Good_Matches.jpg", img_matches);
+        imwrite("/mnt/sdcard/Android/Data/CollaborativeAR/Good_Matches.jpg", img_matches);
     }
 
     int nGoodMatches = good_matches.size();
@@ -272,7 +279,7 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
                 ss.str(string());
                 ss << distance;
                 hello = hello + "\nDistance: " + ss.str();
-                const double rad = (radius/distance)*fxIMG;
+                const double rad = ((radius-standHeight)/(2*distance))*fxIMG;
                 ss.str(string());
                 ss << rad;
                 hello = hello + " | Radius: " + ss.str();
@@ -315,14 +322,14 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
 
                 /* Check if ROI lies in the image and Crop the original image to the defined ROI */
                 bool is_inside = (roi & cv::Rect(0, 0, srcRgba.cols, srcRgba.rows)) == roi;
-                if(is_inside) {
+                if(is_inside && capture) {
                     cvtColor(srcRgba, colorRgba, CV_BGRA2RGBA);
                     crop = srcRgba(roi);
-//                    cvtColor(crop, crop, CV_BGR2RGB);
-                    imwrite("/mnt/sdcard/Android/Data/CollabAR/SEM_cropped.png", crop);
-                    rectangle(colorRgba, roi, Scalar(255,0,0), 2);
-                    imwrite("/mnt/sdcard/Android/Data/CollabAR/frame_ROI.png", colorRgba);
+                    cvtColor(crop, crop, CV_BGR2RGB);
+                    imwrite("/mnt/sdcard/Android/Data/CollaborativeAR/SEM_cropped.png", crop);
                 }
+                rectangle(srcRgba, roi, Scalar(255,0,0), 2);
+                imwrite("/mnt/sdcard/Android/Data/CollaborativeAR/frame_ROI.png", srcRgba);
             } else{
                 hello = hello + "Unable to estimate pose!";
             }
@@ -342,8 +349,8 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
     hello = hello + "\nTime elapsed in Pose Estimation: " + ss.str() + " sec.";
 
 
-    cv::transpose(srcRgba, srcRgba);
-    cv::flip(srcRgba, srcRgba,1);
+    transpose(srcRgba, srcRgba);
+    flip(srcRgba, srcRgba,1);
 //    circle(srcRgba,Point(srcRgba.cols/2,srcRgba.rows/2),2,Scalar(255,0,0),5);
 
     // copy to TextureView surface
