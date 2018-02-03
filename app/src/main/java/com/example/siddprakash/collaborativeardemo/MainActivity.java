@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
+import android.graphics.Bitmap;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
@@ -17,6 +18,8 @@ import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
+import android.opengl.GLES20;
+import android.opengl.GLSurfaceView;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -31,12 +34,17 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
+import org.opencv.core.CvException;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.Scalar;
+import org.opencv.imgproc.Imgproc;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -49,13 +57,22 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.opengles.GL10;
+
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "CollabAR";
 
+    GLSurfaceView mySurfaceView;
+    private Sphere sphere;
+
     private TextView tv;
 
     private Mat frame;
+    private Bitmap bmp=null;
+    private ImageView iv;
+
     private String appFolderPath = Environment.getExternalStorageDirectory() + "/Android/Data/CollaborativeAR/";
 
     private String message="Capture an Image!";
@@ -131,9 +148,33 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        iv = (ImageView) findViewById(R.id.showbmp);
+
         // Example of a call to a native method
         tv = (TextView) findViewById(R.id.sample_text);
 //        tv.setText(stringFromJNI());
+
+
+        mySurfaceView = (GLSurfaceView) findViewById(R.id.renderView);
+        mySurfaceView.setEGLContextClientVersion(2);
+
+        mySurfaceView.setRenderer(new GLSurfaceView.Renderer() {
+            @Override
+            public void onSurfaceCreated(GL10 gl10, EGLConfig eglConfig) {
+                mySurfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+                sphere = new Sphere(getApplicationContext());
+            }
+
+            @Override
+            public void onSurfaceChanged(GL10 gl10, int i, int i1) {
+                GLES20.glViewport(0, 0, i, i1);
+            }
+
+            @Override
+            public void onDrawFrame(GL10 gl10) {
+                sphere.draw();
+            }
+        });
 
 
     }
@@ -481,7 +522,7 @@ public class MainActivity extends AppCompatActivity {
      * A native method that is implemented by the 'native-lib' native library,
      * which is packaged with this application.
      */
-    public native String stringFromJNI(int width, int height, ByteBuffer buffer, long address, Surface dst, boolean p);
+    public native String stringFromJNI(int width, int height, ByteBuffer buffer, long address, Surface dst, boolean p, long sem);
 
     private final ImageReader.OnImageAvailableListener onImageAvailableListener
             = new ImageReader.OnImageAvailableListener() {
@@ -557,13 +598,29 @@ public class MainActivity extends AppCompatActivity {
                     yuvColor = new Mat(img.getHeight() + (img.getHeight() / 2), img.getWidth(), CvType.CV_8UC1);
                     yuvColor.put(0, 0, data);
                 }
-                message = stringFromJNI(img.getWidth(), img.getHeight(), planes[0].getBuffer(), yuvColor.getNativeObjAddr(), surface, processing);
+
+                frame = new Mat();
+                message = stringFromJNI(img.getWidth(), img.getHeight(), planes[0].getBuffer(), yuvColor.getNativeObjAddr(), surface, processing, frame.getNativeObjAddr());
 
                 img.close();
+
+                Mat tmp = new Mat(frame.cols(), frame.rows(), frame.type(), new Scalar(4));
+                try{
+                    Imgproc.cvtColor(frame, tmp,Imgproc.COLOR_BGRA2RGBA, 4);
+                    bmp = Bitmap.createBitmap(tmp.cols(), tmp.rows(), Bitmap.Config.ARGB_8888);
+                    Utils.matToBitmap(tmp, bmp);
+                }
+                catch(CvException e){
+                    Log.d(TAG, e.getMessage());
+                }
+
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         tv.setText(message);
+                        if(!frame.empty()) {
+                            iv.setImageBitmap(bmp);
+                        }
                         if(processing) {
                             flag = true;
                         }
@@ -645,7 +702,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void copyAssetsDataIfNeed(){
-        String assetsToCopy[] = {"image.jpg", "marker.jpg"};
+        String assetsToCopy[] = {"image.jpg", "marker.jpg", "sphere.obj"};
         for(int i=0; i<assetsToCopy.length; i++){
             String from = assetsToCopy[i];
             String to = appFolderPath+from;

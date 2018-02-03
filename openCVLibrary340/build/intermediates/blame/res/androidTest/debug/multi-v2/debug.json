@@ -1,6 +1,10 @@
 {
     "logs": [
         {
+            "outputFile": "/home/siddprakash/collaborativeARDemo/openCVLibrary340/build/intermediates/res/merged/androidTest/debug/values_values.arsc.flat",
+            "map": []
+        },
+        {
             "outputFile": "/Users/siddPrakash/METEOR/CollaborativeARDemo/openCVLibrary340/build/intermediates/res/merged/androidTest/debug/values_values.arsc.flat",
             "map": []
         }

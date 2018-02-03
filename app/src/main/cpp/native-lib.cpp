@@ -32,13 +32,15 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
         jobject /* this */,
         jint srcWidth, jint srcHeight,
         jobject srcBuffer, jlong address,
-        jobject dstSurface, jboolean capture) {
+        jobject dstSurface, jboolean capture, jlong semAddr) {
 
-    string hello = "--*--\n";
+    string hello = "--*--";
     uint8_t *srcLumaPtr = reinterpret_cast<uint8_t *>(env->GetDirectBufferAddress(srcBuffer));
 
     int dstWidth;
     int dstHeight;
+
+    Mat &sem = *(Mat*)semAddr;
 
     Mat &mYuv = *(Mat*)address;
     Mat mYuvGray;
@@ -81,7 +83,7 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
 
     Mat ref = imread("/mnt/sdcard/Android/Data/CollaborativeAR/marker.jpg");
     Rect roi;
-    Mat crop;
+    //Mat crop;
 
     /*
     cvtColor(img, mGray, CV_BGR2RGB);
@@ -95,16 +97,16 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
 
     Mat imgG = mYuvGray;
 
-//    int width;
-//    width = imgG.cols;
-//
-//    int h, w;
-//    h = ref.rows;
-//    w = ref.cols;
-//
-//    float r = width/float(w);
-//
-//    resize(ref, ref, Size(width, int(h*r)), 0, 0, INTER_AREA);
+    int width;
+    width = imgG.cols;
+
+    int h, w;
+    h = ref.rows;
+    w = ref.cols;
+
+    float r = width/float(w);
+
+    resize(ref, ref, Size(width, int(h*r)), 0, 0, INTER_AREA);
 
     // convert images to grayscale
     Mat refG;
@@ -127,7 +129,8 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
     const double cyIMG = imgG.rows/2;
     const double fxIMG = 1.73*cxIMG;
     const double fyIMG = 1.73*cyIMG;
-    const double standHeight = 1/5;
+    const double pageWidth = 23/2;
+    const double standHeight = 1.0/pageWidth;
 
 
     // TODO: Move reference frame parameter estimation code to another function
@@ -135,7 +138,8 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
     const double cyREF = refG.rows/2;
     const double fxREF = cxREF*1.73;
     const double fyREF = cyREF*1.73;
-    const double radius = 0.53/5;
+    const double radius = 0.5/pageWidth;
+    //const double radius = 0.4/pageWidth;
 
     struct timeval start, end, diff;
     ::gettimeofday(&start, NULL);
@@ -175,6 +179,7 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
         if( Y > max_Y )
             max_Y = Y;
         double Z = (radius+standHeight);
+        //double Z = 0;
         p3d.push_back(cv::Point3f(X, Y, Z));
     }
 
@@ -269,20 +274,21 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
             bool foundPose = solvePnPRansac(p3D, p2D, K, Mat::zeros(5, 1, CV_64F), rotVec, transVec);
             if (foundPose){
                 //hello = hello + "\nPose Found! |";
-                ss.str(string());
-                ss << rotVec.t();
-                hello = hello + "Rotation Vector: " + ss.str();
-                ss.str(string());
-                ss << transVec.t();
-                hello = hello + "\nTranslation Vector: " + ss.str();
+                //ss.str(string());
+                //ss << rotVec.t();
+                //hello = hello + "Rotation Vector: " + ss.str();
+                //ss.str(string());
+                //ss << transVec.t();
+                //hello = hello + "\nTranslation Vector: " + ss.str();
                 double distance = norm(transVec);
                 ss.str(string());
                 ss << distance;
                 hello = hello + "\nDistance: " + ss.str();
-                const double rad = ((radius-standHeight)/(2*distance))*fxIMG;
+                const double rad = ceil((radius/distance)*fxIMG);
+                //const double rad = ((radius)/(2*distance))*fxIMG;
                 ss.str(string());
                 ss << rad;
-                hello = hello + " | Radius: " + ss.str();
+                hello = hello + "\nRadius: " + ss.str();
 
                 Mat rotVecFull = Mat(3, 3, CV_64F);
                 Rodrigues(rotVec, rotVecFull);
@@ -305,15 +311,14 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
                 dst(1,0) = dst(1,0)/dst(2,0);
                 dst(2,0) = dst(2,0)/dst(2,0);
 
-                ss.str(string());
-                ss << dst.t();
-                hello = hello + "\nCenter: " + ss.str();
+                //ss.str(string());
+                //ss << dst.t();
+                //hello = hello + "\nCenter: " + ss.str();
 
                 /* Set Region of Interest */
 
                 double offset_x = dst(0,0)-rad;
                 double offset_y = dst(1,0)-rad;
-
 
                 roi.x = offset_x;
                 roi.y = offset_y;
@@ -322,12 +327,16 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
 
                 /* Check if ROI lies in the image and Crop the original image to the defined ROI */
                 bool is_inside = (roi & cv::Rect(0, 0, srcRgba.cols, srcRgba.rows)) == roi;
-                if(is_inside && capture) {
+                if(is_inside) {
                     cvtColor(srcRgba, colorRgba, CV_BGRA2RGBA);
-                    crop = srcRgba(roi);
-                    cvtColor(crop, crop, CV_BGR2RGB);
-                    imwrite("/mnt/sdcard/Android/Data/CollaborativeAR/SEM_cropped.png", crop);
+                    sem = colorRgba(roi);
+                    transpose(sem, sem);
+                    flip(sem, sem, 1);
+                    //cvtColor(sem, sem, CV_BGR2RGB);
+                    imwrite("/mnt/sdcard/Android/Data/CollaborativeAR/SEM_cropped.png", sem);
+
                 }
+                circle(srcRgba,Point(dst(0,0),dst(1,0)),2,Scalar(0, 255, 0),5);
                 rectangle(srcRgba, roi, Scalar(255,0,0), 2);
                 imwrite("/mnt/sdcard/Android/Data/CollaborativeAR/frame_ROI.png", srcRgba);
             } else{
@@ -346,7 +355,7 @@ Java_com_example_siddprakash_collaborativeardemo_MainActivity_stringFromJNI(
 
     ss.str(string());
     ss << diff.tv_usec/1e6;
-    hello = hello + "\nTime elapsed in Pose Estimation: " + ss.str() + " sec.";
+    hello = hello + "\nTime elapsed: " + ss.str() + " sec.";
 
 
     transpose(srcRgba, srcRgba);

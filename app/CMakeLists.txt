@@ -32,7 +32,8 @@ find_library( # Sets the name of the path variable.
               # you want CMake to locate.
               log )
 
-include_directories(/Users/siddPrakash/METEOR/OpenCV-android-sdk/sdk/native/jni/include)
+#include_directories(/Users/siddPrakash/METEOR/OpenCV-android-sdk/sdk/native/jni/include)
+include_directories(/home/siddprakash/OpenCV-android-sdk/sdk/native/jni/include)
 
 # Add OpenCV library
 add_library(lib_opencv

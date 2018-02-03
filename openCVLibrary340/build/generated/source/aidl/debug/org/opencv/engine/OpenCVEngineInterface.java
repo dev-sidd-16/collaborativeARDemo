@@ -1,6 +1,6 @@
 /*
  * This file is auto-generated.  DO NOT MODIFY.
- * Original file: /Users/siddPrakash/METEOR/CollaborativeARDemo/openCVLibrary340/src/main/aidl/org/opencv/engine/OpenCVEngineInterface.aidl
+ * Original file: /home/siddprakash/collaborativeARDemo/openCVLibrary340/src/main/aidl/org/opencv/engine/OpenCVEngineInterface.aidl
  */
 package org.opencv.engine;
 /**
